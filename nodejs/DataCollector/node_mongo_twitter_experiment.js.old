@@ -1,0 +1,185 @@
+/*
+* simple static fileserver + twitter feed
+*/
+
+var sys = require("sys"),
+	http = require("http"),
+	url = require("url"),
+	path = require("path"),
+	fs = require("fs"),
+	events = require("events"),
+        encode = require('./encoding'),
+        target = "nodejs",
+        since = 0,
+        remaining_time = 60000 ,
+	port = 8002;
+
+//for MONGO
+test = require("assert");
+
+var Db = require('/home/versi/Desktop/dev/work/node/lib/mongodb').Db,
+  Connection = require('/home/versi/Desktop/dev/work/node/lib/mongodb').Connection,
+    Server = require('/home/versi/Desktop/dev/work/node/lib/mongodb').Server,
+  // BSON = require('../lib/mongodb').BSONPure;
+  BSON = require('/home/versi/Desktop/dev/work/node/lib/mongodb').BSONNative;
+
+var mongo_host = process.env['MONGO_NODE_DRIVER_HOST'] != null ? process.env['MONGO_NODE_DRIVER_HOST'] : 'localhost';
+var mongo_port = process.env['MONGO_NODE_DRIVER_PORT'] != null ? process.env['MONGO_NODE_DRIVER_PORT'] : Connection.DEFAULT_PORT;
+
+
+sys.puts("Connecting to " + mongo_host + ":" + mongo_port);
+
+var db = new Db('node-mongo-examples', new Server(mongo_host, mongo_port, {}), {native_parser:true});
+db.open(function(err, db) {
+
+ db.collection('test', function(err, collection) {
+ 
+        collection.insert([{'a':1}, {'a':2}, {'b':3}], function(docs) {
+          // Count the number of records
+          collection.count(function(err, count) {
+            sys.puts("There are " + count + " records.");
+          })
+          });
+       
+          
+        collection.find(function(err, cursor) {
+            // Print each row, each document has an _id field added on insert
+            // to override the basic behaviour implement a primary key factory
+            // that provides a 12 byte value
+            sys.puts("Printing docs from Cursor Each")
+            cursor.each(function(err, doc) {
+              if(doc != null) sys.puts("Doc from Each " + sys.inspect(doc));
+            })                    
+          });
+
+
+
+
+
+
+// simple static server	
+function loadStaticFile(uri, response) {
+	var filename = path.join(process.cwd(), uri);
+	//
+	path.exists(filename, function(exists) {
+		if (!exists) {
+			response.writeHead(404, {"Content-Type": "text/plain"});
+			response.write("404 Not Found\n");
+			response.end();
+			return;
+		}
+		fs.readFile(filename, "binary", function(err, file) {
+			if (err) {
+				response.writeHead(500, {"Content-Type": "text/plain"});
+				response.write(err + "\n");
+				response.end();
+				return;
+			}
+
+			response.writeHead(200);
+			response.write(file, "binary");
+			response.end();
+		});
+
+	});
+}	
+
+var twitterClient = http.createClient(80, 'search.twitter.com');
+var tweetEmitter = new events.EventEmitter();
+
+function getTweets() {
+	var request = twitterClient.request("GET", "/search.json?q=" + target + "&since_id="+since, {"host": "search.twitter.com"});
+	request.addListener("response", function (response) {
+		var body = "";
+
+		response.addListener("data", function (data) {
+			body += data;
+		});
+
+		response.addListener("end", function (end) {
+			//body=encode.base64(body);
+                        try {
+                        console.log("Body : "+body);
+                        var tweets = JSON.parse(body);
+                        //console.log(tweets, 'fucking tweets loaded');
+                        console.log("Tweets : "+tweets);
+                     
+
+                         for (i in tweets.results) {  
+                           console.log("inside "+i);
+                           console.log("Text_results : "+JSON.stringify(tweets.results[i]));
+                           console.log("I_text : "+tweets.results[i].text);
+                           collection.insert([{'text':tweets.results[i].text}, {'from_user_id':tweets.results[i].from_user_id}, {'x':3}], function(docs) {
+                             // Count the number of records
+                               collection.count(function(err, count) {
+                               sys.puts("There are " + count + " records.");
+                               })
+                            });
+                          
+                           
+                         }
+ 
+			if (tweets.length > 0) {
+				tweetEmitter.emit("tweets", tweets);
+				//console.log(tweets, 'tweets loaded');
+			}
+                         } catch (e) {console.log("Catch : "+e.message)}
+                        
+
+		});
+	});
+
+	request.end();
+        remaining_time = 60000;
+}
+
+setInterval(getTweets, 30000);
+
+for(var i = 60; i < 1; i--) {
+  console.log(i+"sec. remaining");
+}
+
+console.log('For loop');
+for(var i = 0; i < 5; i++) {
+ console.log(i);
+}
+
+function printRemainingTime(remaining_time) {
+//remaining_time = remaining_time - 1000;
+console.log("Time remaining : "+remaining_time)
+}
+
+setInterval(printRemainingTime(remaining_time-1000),1000);
+
+http.createServer(function (request, response) {
+	var uri = url.parse(request.url).pathname;
+	console.log(uri);
+	if (uri === '/stream') {
+		var cb = function (tweets) {
+			response.writeHead(200, {"Content-Type": "text/plain"});
+			response.write(JSON.stringify(tweets));
+			response.end();
+			clearTimeout(timeout);
+		};
+		tweetEmitter.addListener("tweets", cb);
+
+		// timeout to kill requests that take longer than 10 secs
+		var timeout = setTimeout(function () {
+			response.writeHead(200, {"Content-Type": "text/plain"});
+			response.write(JSON.stringify([]));
+			response.end();
+			tweetEmitter.removeListener("tweets", cb);
+		}, 30000);
+
+	} else {
+		loadStaticFile(uri, response);
+	}
+
+}).listen(port);
+
+
+});
+});
+
+
+console.log("Server running at http://localhost:" + port + "/");
