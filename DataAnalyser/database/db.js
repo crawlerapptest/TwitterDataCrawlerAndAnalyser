@@ -55,7 +55,6 @@ DB.prototype.addUsersOrderByTopFollowers = function(colltweets,coll, limit) {
 				console.log("Could not access collection: " + error.message);
 				reject(error.message);
 			} else {
-				//var cursor = collection.find({}).sort({"user.followers_count": -1}).project({"user.name": 1, "user.followers_count": 1}).limit(limit);
 				
 				var cursor = collection.aggregate (
 					[
@@ -83,11 +82,10 @@ DB.prototype.addUsersOrderByTopFollowers = function(colltweets,coll, limit) {
 						console.log("Error reading fron cursor: " + error.message);
 						reject(error.message);
 					} else {
-						console.log (docArray);
+						console.log ("Gravando dados dos 5 primeiros usários com maior número de seguidores...");
 						insertDocs(_this.db, coll, docArray)
 						.then(
 							function(results) {
-								console.log("Quantidade de registros inseridos: " + results);
 								resolve(results);
 							},
 							function(err) {
@@ -141,7 +139,7 @@ DB.prototype.addTotalPostsOrderByHour = function(colltweets,coll) {
 						console.log("Error reading fron cursor: " + error.message);
 						reject(error.message);
 					} else {
-						console.log (docArray);
+						console.log ("Gravando dados do total de posts ordenados pela hora do dia...");
 						insertDocs(_this.db, coll, docArray)
 						.then(
 							function(results) {
@@ -207,11 +205,12 @@ DB.prototype.addTotalPostsOrderByTagAndCountry = function(colltweets, coll,hashT
 						console.log("Error reading fron cursor: " + error.message);
 						reject(error.message);
 					} else {
-						console.log (docArray);
+						console.log ("Gravando dados do total de posts ordenados por HashTag, Idioma e Localização...");
 						insertDocs(_this.db, coll, docArray)
 						.then(
 							function(results) {
 								resolve(results);
+								console.log ("Dados Gravados com Sucesso...");
 							},
 							function(err) {
 								console.log("Failed to insert Docs: " + err);

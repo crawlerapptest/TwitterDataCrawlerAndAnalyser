@@ -1,7 +1,7 @@
 {
-  "name": "twittercrawlerapp",
+  "name": "data_analyser",
   "version": "1.0.0",
-  "description": "Crawler Nodejs para listar os ultimos 100 tweets por hashtags",
+  "description": "Crawler Nodejs para sumarizar os dados coletados do Twitter por hashtags",
   "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
